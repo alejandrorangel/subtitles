@@ -7,10 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
 )
 
-const TRESHOLD float64 = 0.1
+const TRESHOLD float64 = 0.2
 
 // TranscribeObject : structure obtain from AWS Transcribe Service
 type TranscribeObject struct {
@@ -27,8 +26,8 @@ type Result struct {
 
 // TranscriptionItem : structure obteain from AWS Transcribe Service
 type TranscriptionItem struct {
-	StartTime    string         `json:"start_time"`
-	EndTime      string         `json:"end_time"`
+	StartTime    float64        `json:"start_time,string"`
+	EndTime      float64        `json:"end_time,string"`
 	Alertantives []Aleternative `json:"alternatives"`
 	Type         string         `json:"type"`
 }
@@ -48,7 +47,7 @@ func (p Aleternative) toString() string {
 }
 
 func (p TranscriptionItem) toString() string {
-	return fmt.Sprintf("00:%s  --> 00:%s \n%s\n", p.StartTime, p.EndTime, p.Alertantives[0].toString())
+	return fmt.Sprintf("00:%.3f --> 00:%.3f \n%s\n", p.StartTime, p.EndTime, p.Alertantives[0].toString())
 }
 
 func getTranscription() TranscribeObject {
@@ -63,12 +62,10 @@ func getTranscription() TranscribeObject {
 }
 
 func getBuffer(current TranscriptionItem, next TranscriptionItem, textBuffer bytes.Buffer) bytes.Buffer {
-	if next.StartTime == "" || next.EndTime == "" {
+	if next.Type == "punctuation" {
 		textBuffer.WriteString(fmt.Sprintf("%s ", next.Alertantives[0].toString()))
 	} else {
-		currentEndTime, _ := strconv.ParseFloat(current.EndTime, 64)
-		nextStartTime, _ := strconv.ParseFloat(next.StartTime, 64)
-		if (nextStartTime - currentEndTime) < TRESHOLD {
+		if (next.StartTime - current.EndTime) < TRESHOLD {
 			textBuffer.WriteString(fmt.Sprintf("%s ", next.Alertantives[0].toString()))
 		}
 	}
@@ -82,7 +79,7 @@ func getNewObject(items []TranscriptionItem) []TranscriptionItem {
 	for i := 0; i < len(items); i++ {
 		item := items[i]
 		var newItem TranscriptionItem
-		if item.StartTime == "" || item.EndTime == "" {
+		if item.Type == "punctuation" {
 			textBuffer.WriteString(item.Alertantives[0].toString())
 		} else {
 			newItem.StartTime = item.EndTime
@@ -90,7 +87,7 @@ func getNewObject(items []TranscriptionItem) []TranscriptionItem {
 			textBuffer.WriteString(fmt.Sprintf("%s ", item.Alertantives[0].toString()))
 			for k := i + 1; k < len(items); k++ {
 				currentItem := items[k]
-				if currentItem.StartTime == "" || currentItem.EndTime == "" {
+				if currentItem.Type == "punctuation" {
 					textBuffer.WriteString(fmt.Sprintf("%s", currentItem.Alertantives[0].toString()))
 					if k == len(items)-1 {
 						var newAlternatives Aleternative
@@ -112,9 +109,7 @@ func getNewObject(items []TranscriptionItem) []TranscriptionItem {
 						break
 					}
 				} else {
-					itemEndTime, _ := strconv.ParseFloat(previusWithTime.EndTime, 64)
-					nextStartTime, _ := strconv.ParseFloat(currentItem.StartTime, 64)
-					if (nextStartTime - itemEndTime) < TRESHOLD {
+					if (currentItem.StartTime - previusWithTime.EndTime) < TRESHOLD {
 						textBuffer.WriteString(fmt.Sprintf("%s ", currentItem.Alertantives[0].toString()))
 						previusWithTime = currentItem
 					} else {
