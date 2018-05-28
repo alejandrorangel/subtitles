@@ -1,14 +1,13 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 )
 
+// TRESHOLD : amount of time to determinate if a sentence has finish or not
 const TRESHOLD float64 = 0.2
 
 // TranscribeObject : structure obtain from AWS Transcribe Service
@@ -50,8 +49,8 @@ func (p TranscriptionItem) toString() string {
 	return fmt.Sprintf("00:%.3f --> 00:%.3f \n%s\n", p.StartTime, p.EndTime, p.Alertantives[0].toString())
 }
 
-func getTranscription() TranscribeObject {
-	raw, err := ioutil.ReadFile("./asrOutput.json")
+func getTranscription(file string) TranscribeObject {
+	raw, err := ioutil.ReadFile(file)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -128,33 +127,4 @@ func getNewObject(items []TranscriptionItem) []TranscriptionItem {
 		}
 	}
 	return newItems
-}
-
-func main() {
-
-	trasncription := getTranscription()
-
-	newItems := getNewObject(trasncription.Results.Items)
-	writeToFile(newItems)
-}
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
-func writeToFile(items []TranscriptionItem) {
-	f, err := os.Create("caption.vtt")
-	check(err)
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-	_, err = w.WriteString(fmt.Sprintf("WEBVTT\n\n"))
-	for _, item := range items {
-		_, err = w.WriteString(item.toString())
-		_, err = w.WriteString("\n")
-	}
-
-	w.Flush()
 }
